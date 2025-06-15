@@ -37,13 +37,13 @@ Hexicript is a powerful scripting language for Minecraft servers, allowing serve
 
 ## Documentation
 
-For detailed documentation, please visit our [Wiki](https://github.com/yourusername/hexicript/wiki).
+For detailed documentation, please visit our [Wiki](https://github.com/HEXLORDDEV/hexicript/wiki).
 
 ## Building from Source
 
 1. Clone the repository
    ```bash
-   git clone https://github.com/yourusername/hexicript.git
+   git clone https://github.com/HEXLORDDEV/hexicript.git
    cd hexicript
    ```
 2. Build with Maven

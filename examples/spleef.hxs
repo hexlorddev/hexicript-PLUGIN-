@@ -1,0 +1,257 @@
+# Spleef Minigame with Hexicript
+# Save this in plugins/Hexicript/scripts/
+
+# Game configuration
+set {spleef::min-players} to 2
+set {spleef::max-players} to 8
+set {spleef::countdown-time} to 30
+set {spleef::game-time} to 300  # 5 minutes
+
+# Game state variables
+set {spleef::players} to []
+set {spleef::game-running} to false
+set {spleef::countdown-task} to -1
+
+# Arena boundaries (update these to match your arena)
+set {spleef::arena::pos1} to location at world "world" x 100 y 64 z 100
+set {spleef::arena::pos2} to location at world "world" x 150 y 90 z 150
+set {spleef::lobby} to location at world "world" x 125 y 65 z 125
+
+# Join command
+command "spleef join":
+    aliases: ["joinspleef"]
+    description: "Join the spleef minigame"
+    
+    execute:
+        if sender is not player:
+            send "&cThis command can only be used by players!" to sender
+            return
+            
+        if {spleef::game-running} is true:
+            send "&cA game is already in progress!" to player
+            return
+            
+        if player is in {spleef::players}:
+            send "&cYou're already in the game!" to player
+            return
+            
+        # Add player to game
+        add player to {spleef::players}
+        
+        # Clear inventory and set game mode
+        clear player's inventory
+        set player's game mode to adventure
+        
+        # Teleport to lobby
+        teleport player to {spleef::lobby}
+        
+        # Send welcome message
+        send "&aYou've joined the spleef game! Waiting for more players..." to player
+        send "&7Players: &e%size of {spleef::players}%/%{spleef::max-players}%" to player
+        
+        # Start countdown if enough players
+        if size of {spleef::players} is {spleef::min-players} and {spleef::countdown-task} is -1:
+            start_countdown()
+
+# Leave command
+command "spleef leave":
+    aliases: ["leavespleef"]
+    description: "Leave the spleef minigame"
+    
+    execute:
+        if sender is not player:
+            send "&cThis command can only be used by players!" to sender
+            return
+            
+        if player is not in {spleef::players}:
+            send "&cYou're not in a spleef game!" to player
+            return
+            
+        # Remove player
+        remove player from {spleef::players}
+        
+        # Reset player
+        teleport player to spawn
+        clear player's inventory
+        set player's game mode to survival
+        
+        send "&aYou've left the spleef game!" to player
+        
+        # Cancel game if not enough players
+        if size of {spleef::players} < {spleef::min-players} and {spleef::game-running} is false:
+            broadcast "&cNot enough players! Game cancelled." to {spleef::players}
+            cancel task {spleef::countdown-task}
+            set {spleef::countdown-task} to -1
+
+# Admin command to start game immediately
+command "spleef start":
+    permission: "hexicript.spleef.admin"
+    description: "Force start the spleef game"
+    
+    execute:
+        if {spleef::game-running} is true:
+            send "&cA game is already in progress!" to sender
+            return
+            
+        if size of {spleef::players} < {spleef::min-players}:
+            send "&cNot enough players to start! (Need %{spleef::min-players}%)" to sender
+            return
+            
+        start_game()
+
+# Countdown function
+define function start_countdown():
+    set {spleef::countdown} to {spleef::countdown-time}
+    
+    # Cancel any existing countdown
+    if {spleef::countdown-task} is not -1:
+        cancel task {spleef::countdown-task}
+    
+    # Start new countdown
+    set {spleef::countdown-task} to run task every second:
+        if {spleef::countdown} <= 0:
+            # Start the game
+            cancel task
+            start_game()
+            return
+            
+        # Show countdown message
+        if {spleef::countdown} <= 5 or {spleef::countdown} mod 10 is 0:
+            broadcast "&aGame starting in &e{spleef::countdown} &asecond%{spleef::countdown} == 1 ? '' : 's'%!" to {spleef::players}
+            
+        # Play sound
+        play sound "block.note_block.pling" at all players in {spleef::players} with volume 1.0 and pitch 1.0
+        
+        # Decrement counter
+        subtract 1 from {spleef::countdown}
+
+# Start game function
+define function start_game():
+    set {spleef::game-running} to true
+    set {spleef::countdown-task} to -1
+    
+    # Give players their gear
+    loop all players in {spleef::players}:
+        # Give diamond shovel
+        give loop-player diamond_shovel with:
+            name: "&bSpleef Shovel"
+            lore: ["&7Break blocks to make players fall!"]
+            enchantments: ["efficiency:5", "unbreaking:3"]
+        
+        # Teleport to random position in arena
+        set {x} to random integer between {spleef::arena::pos1's x} and {spleef::arena::pos2's x}
+        set {z} to random integer between {spleef::arena::pos1's z} and {spleef::arena::pos2's z}
+        set {y} to {spleef::arena::pos2's y}
+        
+        teleport loop-player to location at loop-player's world x {x} y {y} z {z}
+        
+        # Set game mode and health
+        set loop-player's game mode to survival
+        set loop-player's health to 20
+        set loop-player's food level to 20
+        
+        # Send title
+        send title "&aGO!" with subtitle "&7Break blocks to make others fall!" to loop-player with fadein 5 stay 40 fadeout 5
+    
+    # Start game timer
+    set {spleef::time-left} to {spleef::game-time}
+    set {spleef::game-task} to run task every second:
+        if {spleef::time-left} <= 0:
+            # Game over - draw
+            broadcast "&eTime's up! The game ended in a draw!" to {spleef::players}
+            end_game()
+            return
+            
+        # Update scoreboard every 30 seconds or when less than 10 seconds remain
+        if {spleef::time-left} <= 10 or {spleef::time-left} mod 30 is 0:
+            broadcast "&eTime remaining: &a%format_time({spleef::time-left})%" to {spleef::players}
+            
+        # Check for winner
+        set {alive-players} to filter {spleef::players} where [loop-value is on ground]
+        if size of {alive-players} <= 1:
+            if size of {alive-players} is 1:
+                # We have a winner!
+                set {winner} to first element of {alive-players}
+                broadcast "&a%{winner}% &ehas won the spleef game!" to {spleef::players}
+                
+                # Reward the winner
+                give {winner} diamond with amount 10
+                play sound "entity.player.levelup" at {winner} with volume 1.0 and pitch 2.0
+                spawn firework at {winner}'s location with colors ["red", "yellow", "green"] and type "star"
+            else:
+                # No winners (everyone fell at the same time?)
+                broadcast "&eThe game ended with no winners!" to {spleef::players}
+                
+            end_game()
+            return
+            
+        subtract 1 from {spleef::time-left}
+
+# End game function
+define function end_game():
+    # Cancel tasks
+    if {spleef::countdown-task} is not -1:
+        cancel task {spleef::countdown-task}
+        set {spleef::countdown-task} to -1
+        
+    if {spleef::game-task} is not -1:
+        cancel task {spleef::game-task}
+        set {spleef::game-task} to -1
+    
+    # Reset players
+    loop all players in {spleef::players}:
+        teleport loop-player to spawn
+        clear loop-player's inventory
+        set loop-player's game mode to survival
+        set loop-player's health to 20
+        set loop-player's food level to 20
+    
+    # Reset game state
+    set {spleef::players} to []
+    set {spleef::game-running} to false
+
+# Helper function to format time
+function format_time(seconds):
+    set {minutes} to floor({seconds} / 60)
+    set {seconds-left} to {seconds} - ({minutes} * 60)
+    
+    if {seconds-left} < 10:
+        return "%{minutes}%:0%{seconds-left}%"
+    else:
+        return "%{minutes}%:%{seconds-left}%"
+
+# Player fall detection
+every tick:
+    if {spleef::game-running} is true:
+        loop all players in {spleef::players}:
+            if loop-player's y is less than {spleef::arena::pos1's y} - 5:
+                # Player fell out of the arena
+                if loop-player is in {spleef::players}:  # Check if still in game
+                    remove loop-player from {spleef::players}
+                    
+                    # Check if game should end
+                    if size of {spleef::players} <= 1:
+                        if size of {spleef::players} is 1:
+                            set {winner} to first element of {spleef::players}
+                            broadcast "&a%{winner}% &ehas won the spleef game!" to all players
+                            
+                            # Reward the winner
+                            give {winner} diamond with amount 10
+                            play sound "entity.player.levelup" at {winner} with volume 1.0 and pitch 2.0
+                            spawn firework at {winner}'s location with colors ["red", "yellow", "green"] and type "star"
+                        else:
+                            broadcast "&eThe game ended with no winners!" to all players
+                            
+                        end_game()
+                    else:
+                        broadcast "&c%loop-player% &ehas been eliminated!" to {spleef::players}
+                        
+                    # Spectator mode for eliminated players
+                    set loop-player's game mode to spectator
+                    play sound "entity.ender_dragon.growl" at loop-player with volume 1.0 and pitch 0.5
+
+# Clean up on script unload
+on script unload:
+    if {spleef::game-running} is true:
+        end_game()
+    console log "[Spleef] Spleef minigame unloaded"

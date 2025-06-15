@@ -1,0 +1,434 @@
+# Chat Utility Script
+# Provides utility functions for chat and message formatting
+
+# Function to send a formatted message to a player
+function send_message(player, message, type = "chat", sound = "", pitch = 1.0, volume = 1.0):
+    if {player} is not online:
+        return false, "Player is not online"
+    
+    # Format message with color codes
+    set {formatted} to format_colors({message})
+    
+    # Send message based on type
+    if {type} is "chat" or {type} is "":
+        send {formatted} to {player}
+    else if {type} is "action_bar":
+        send action bar {formatted} to {player}
+    else if {type} is "title":
+        send title {formatted} to {player}
+    else if {type} is "subtitle":
+        send subtitle {formatted} to {player}
+    else if {type} is "title_with_subtitle":
+        set {parts} to split("\n", {formatted}, 2)
+        if size of {parts} >= 2:
+            send title {parts[0]} with subtitle {parts[1]} to {player}
+        else:
+            send title {formatted} to {player}
+    else if {type} is "boss_bar":
+        create boss bar {formatted} and show it to {player}
+    
+    # Play sound if specified
+    if {sound} is not "":
+        play sound {sound} at {player} with pitch {pitch} and volume {volume}
+    
+    return true, ""
+
+# Function to broadcast a message to all players
+function broadcast_message(message, permission = "", type = "chat", sound = "", pitch = 1.0, volume = 1.0):
+    set {formatted} to format_colors({message})
+    set {count} to 0
+    
+    loop all players:
+        if {permission} is "" or loop-player has permission {permission}:
+            if {type} is "chat" or {type} is "":
+                send {formatted} to loop-player
+            else if {type} is "action_bar":
+                send action bar {formatted} to loop-player
+            else if {type} is "title":
+                send title {formatted} to loop-player
+            else if {type} is "subtitle":
+                send subtitle {formatted} to loop-player
+            else if {type} is "title_with_subtitle":
+                set {parts} to split("\n", {formatted}, 2)
+                if size of {parts} >= 2:
+                    send title {parts[0]} with subtitle {parts[1]} to loop-player
+                else:
+                    send title {formatted} to loop-player
+            else if {type} is "boss_bar":
+                create boss bar {formatted} and show it to loop-player
+            
+            if {sound} is not "":
+                play sound {sound} at loop-player with pitch {pitch} and volume {volume}
+            
+            add 1 to {count}
+    
+    return {count}, "Message sent to %{count}% players"
+
+# Function to format color codes in a string
+function format_colors(text):
+    # Replace color codes
+    set {result} to {text}
+    
+    # Color codes
+    set {colors} to {"0": "&0", "1": "&1", "2": "&2", "3": "&3", "4": "&4",
+                    "5": "&5", "6": "&6", "7": "&7", "8": "&8", "9": "&9",
+                    "a": "&a", "b": "&b", "c": "&c", "d": "&d", "e": "&e", "f": "&f"}
+    
+    # Format codes
+    set {formats} to {"k": "&k", "l": "&l", "m": "&m", "n": "&n", "o": "&o", "r": "&r"}
+    
+    # Replace hex colors (#RRGGBB)
+    set {result} to {result} replace all regex "&#([0-9a-fA-F]{6})" with "§x§$1§r"
+    
+    # Replace color codes
+    loop {colors}:
+        set {result} to {result} replace "&%loop-index%" with "§%loop-index%"
+    
+    # Replace format codes
+    loop {formats}:
+        set {result} to {result} replace "&%loop-index%" with "§%loop-index%"
+    
+    # Replace legacy format with new format
+    set {result} to {result} replace "§x" with "§#"
+    
+    return {result}
+
+# Function to strip color codes from a string
+function strip_colors(text):
+    return {text} replace all regex "§[0-9a-fk-or]" with ""
+
+# Function to center a message in chat
+function center_message(message, line_char = "-", line_color = "&7"):
+    set {message} to format_colors({message})
+    set {stripped} to strip_colors({message})
+    
+    # Get the maximum line length (Minecraft chat is about 53 characters wide)
+    set {max_length} to 53
+    
+    # Calculate padding
+    set {message_length} to length of {stripped}
+    
+    if {message_length} >= {max_length} - 4:  # Leave some space for the line chars
+        return "%{line_color}%&l%{line_char}%&r %{message}% %{line_color}%&l%{line_char}%&r"
+    
+    set {padding} to ({max_length} - {message_length}) / 2 - 2  # -2 for the spaces around the message
+    
+    # Create the line
+    set {line} to ""
+    loop {padding} times:
+        set {line} to "%{line}%%{line_char}%"
+    
+    # Build the final message
+    return "%{line_color}%&l%{line}%&r %{message}% %{line_color}%&l%{line}%&r"
+
+# Function to create a progress bar
+function create_progress_bar(current, max, length = 20, filled_char = "|", empty_char = " ", 
+                            filled_color = "&a", empty_color = "&7", brackets_color = "&7", 
+                            show_percentage = true, show_numbers = true):
+    if {max} <= 0:
+        set {max} to 1
+    
+    if {current} > {max}:
+        set {current} to {max}
+    
+    # Calculate filled and empty segments
+    set {percentage} to ({current} / {max}) * 100
+    set {filled_length} to floor(({current} / {max}) * {length})
+    
+    # Create the progress bar
+    set {bar} to ""
+    
+    # Add opening bracket
+    set {bar} to "%{brackets_color}%[&r"
+    
+    # Add filled part
+    if {filled_length} > 0:
+        set {bar} to "%{bar}%%{filled_color}%"
+        loop {filled_length} times:
+            set {bar} to "%{bar}%%{filled_char}%"
+    
+    # Add empty part
+    set {empty_length} to {length} - {filled_length}
+    if {empty_length} > 0:
+        set {bar} to "%{bar}%%{empty_color}%"
+        loop {empty_length} times:
+            set {bar} to "%{bar}%%{empty_char}%"
+    
+    # Add closing bracket
+    set {bar} to "%{bar}%%{brackets_color}%]&r"
+    
+    # Add percentage if enabled
+    if {show_percentage}:
+        set {bar} to "%{bar}% &7%round({percentage}, 1)%%"
+    
+    # Add numbers if enabled
+    if {show_numbers}:
+        set {bar} to "%{bar}% &8(%{current}%/%{max}%)"
+    
+    return format_colors({bar})
+
+# Function to create a countdown timer
+function create_countdown(duration, format = "&eTime left: &6%time%", update_interval = 1, 
+                         on_finish = "&aTime's up!", type = "action_bar", sound = "", 
+                         finish_sound = "ENTITY_PLAYER_LEVELUP"):
+    set {countdown::%{player}%::remaining} to {duration}
+    set {countdown::%{player}%::task} to run task every {update_interval} second:
+        if {countdown::%{player}%::remaining} <= 0:
+            # Countdown finished
+            cancel task
+            
+            # Send finish message
+            if {on_finish} is not "":
+                send_message(player, {on_finish}, {type})
+                
+                # Play finish sound
+                if {finish_sound} is not "":
+                    play sound {finish_sound} at player with volume 1.0 and pitch 1.0
+            
+            # Clean up
+            delete {countdown::%{player}%::remaining}
+            delete {countdown::%{player}%::task}
+        else:
+            # Update countdown
+            set {time_left} to format_time({countdown::%{player}%::remaining})
+            set {message} to {format} replace "%time%" with "%{time_left}%"
+            
+            # Send update
+            send_message(player, {message}, {type}, {sound})
+            
+            # Decrement counter
+            subtract {update_interval} from {countdown::%{player}%::remaining}
+    
+    return {countdown::%{player}%::task}
+
+# Function to cancel a countdown
+function cancel_countdown(player):
+    if {countdown::%{player}%::task} is set:
+        cancel task {countdown::%{player}%::task}
+        delete {countdown::%{player}%::task}
+    
+    if {countdown::%{player}%::remaining} is set:
+        delete {countdown::%{player}%::remaining}
+    
+    return true
+
+# Function to format time in seconds to a human-readable format
+function format_time(seconds, show_seconds = true):
+    set {seconds} to floor({seconds})
+    
+    if {seconds} < 0:
+        return "0s"
+    
+    set {minutes} to floor({seconds} / 60)
+    set {hours} to floor({minutes} / 60)
+    set {days} to floor({hours} / 24)
+    
+    set {seconds} to {seconds} % 60
+    set {minutes} to {minutes} % 60
+    set {hours} to {hours} % 24
+    
+    set {result} to ""
+    
+    if {days} > 0:
+        set {result} to "%{days}%d"
+    
+    if {hours} > 0 or {days} > 0:
+        if {result} is not "":
+            set {result} to "%{result}% "
+        set {result} to "%{result}%%{hours}%h"
+    
+    if {minutes} > 0 or {hours} > 0 or {days} > 0:
+        if {result} is not "":
+            set {result} to "%{result}% "
+        set {result} to "%{result}%%{minutes}%m"
+    
+    if ({seconds} > 0 or {show_seconds}) and ({minutes} < 1 and {hours} < 1 and {days} < 1 or {show_seconds}):
+        if {result} is not "":
+            set {result} to "%{result}% "
+        set {result} to "%{result}%%{seconds}%s"
+    
+    return {result}
+
+# Function to create a scrolling text effect
+function create_scrolling_text(text, width = 30, speed = 1, reverse = false):
+    set {scroller::%{text}%::original} to {text}
+    set {scroller::%{text}%::width} to {width}
+    set {scroller::%{text}%::speed} to {speed}
+    set {scroller::%{text}%::reverse} to {reverse}
+    
+    # Add padding to the text
+    set {padded} to "%{text}%     "  # Add some spaces at the end
+    
+    # Create the scrolling effect
+    set {scroller::%{text}%::frames} to []
+    set {length} to length of {padded}
+    
+    if {reverse}:
+        # Reverse scrolling
+        loop {length} + {width}:
+            set {frame} to ""
+            set {start} to max(0, {length} - loop-number - 1)
+            set {end} to min({length}, {start} + {width})
+            
+            if {start} < {length}:
+                set {frame} to substring of {padded} from {start} to {end}
+            
+            # Pad with spaces if needed
+            if length of {frame} < {width}:
+                set {frame} to "%{frame}%%substring of {padded} from 0 to {width} - length of {frame}%"
+            
+            add {frame} to {scroller::%{text}%::frames}
+    else:
+        # Forward scrolling
+        loop {length} + {width}:
+            set {frame} to ""
+            set {start} to loop-number
+            set {end} to min({length}, {start} + {width})
+            
+            if {start} < {length}:
+                set {frame} to substring of {padded} from {start} to {end}
+            
+            # Pad with spaces if needed
+            if length of {frame} < {width}:
+                set {frame} to "%{frame}%%substring of {padded} from 0 to {width} - length of {frame}%"
+            
+            add {frame} to {scroller::%{text}%::frames}
+    
+    set {scroller::%{text}%::current_frame} to 0
+    set {scroller::%{text}%::total_frames} to size of {scroller::%{text}%::frames}
+    
+    return {text}
+
+# Function to get the next frame of a scrolling text
+function get_scrolling_text_frame(text):
+    if {scroller::%{text}%::frames} is not set:
+        return {text}
+    
+    set {frame} to {scroller::%{text}%::frames}[{scroller::%{text}%::current_frame}]
+    
+    # Move to the next frame
+    add {scroller::%{text}%::speed} to {scroller::%{text}%::current_frame}
+    
+    # Loop back to the start if we've reached the end
+    if {scroller::%{text}%::current_frame} >= {scroller::%{text}%::total_frames}:
+        set {scroller::%{text}%::current_frame} to 0
+    
+    return {frame}
+
+# Function to create a typewriter effect
+function create_typewriter_effect(text, speed = 1):
+    set {typewriter::%{text}%::original} to {text}
+    set {typewriter::%{text}%::speed} to {speed}
+    set {typewriter::%{text}%::position} to 0
+    set {typewriter::%{text}%::length} to length of {text}
+    
+    return {text}
+
+# Function to get the next frame of a typewriter effect
+function get_typewriter_frame(text):
+    if {typewriter::%{text}%::original} is not set:
+        return {text}
+    
+    set {position} to {typewriter::%{text}%::position}
+    set {speed} to {typewriter::%{text}%::speed}
+    
+    # Get the current frame
+    set {frame} to substring of {typewriter::%{text}%::original} from 0 to {position}
+    
+    # Add a blinking cursor
+    if {position} % 2 is 0:
+        set {frame} to "%{frame}%_"
+    
+    # Move to the next position
+    add {speed} to {typewriter::%{text}%::position}
+    
+    # Reset if we've reached the end
+    if {typewriter::%{text}%::position} > {typewriter::%{text}%::length} + 20:  # Extra delay at the end
+        set {typewriter::%{text}%::position} to 0
+    
+    return {frame}
+
+# Function to create a chat pagination system
+function create_paginated_chat(player, title, items, items_per_page = 5, command = ""):
+    set {page::%{player}%::%{title}%::items} to {items}
+    set {page::%{player}%::%{title}%::items_per_page} to {items_per_page}
+    set {page::%{player}%::%{title}%::current_page} to 0
+    set {page::%{player}%::%{title}%::command} to {command}
+    
+    show_page({player}, {title})
+
+# Function to show a specific page of a paginated chat
+function show_page(player, title, page_number = 0):
+    if {page::%{player}%::%{title}%::items} is not set:
+        return false, "No items to display"
+    
+    set {items} to {page::%{player}%::%{title}%::items}
+    set {items_per_page} to {page::%{player}%::%{title}%::items_per_page}
+    set {total_pages} to ceil(size of {items} / {items_per_page})
+    
+    # Ensure page number is within bounds
+    if {page_number} < 0:
+        set {page_number} to 0
+    else if {page_number} >= {total_pages}:
+        set {page_number} to {total_pages} - 1
+    
+    set {page::%{player}%::%{title}%::current_page} to {page_number}
+    
+    # Calculate start and end indices
+    set {start} to {page_number} * {items_per_page}
+    set {end} to min({start} + {items_per_page}, size of {items})
+    
+    # Send header
+    send message "&6=== &e%{title}% &7(Page %{page_number}%/%{total_pages}%) &6===" to {player}
+    
+    # Send items for current page
+    loop {items} from {start} to {end} - 1:
+        send message "  %loop-value%" to {player}
+    
+    # Send navigation help
+    if {total_pages} > 1:
+        set {command} to {page::%{player}%::%{title}%::command}
+        
+        if {command} is "":
+            set {command} to "/page"
+        
+        send message "" to {player}
+        
+        if {page_number} > 0:
+            send message "&7[&aPrevious&7] &8- &7Type '&e%{command}% %{page_number}%&7' to go to page %{page_number}%" to {player}
+        
+        if {page_number} < {total_pages} - 1:
+            set {next_page} to {page_number} + 2  # +1 for 1-based, +1 for next page
+            send message "&7[&aNext&7] &8- &7Type '&e%{command}% %{next_page}%&7' to go to page %{next_page}%" to {player}
+    
+    return true, ""
+
+# Function to handle page navigation command
+function handle_page_command(player, title, args):
+    if {page::%{player}%::%{title}%::items} is not set:
+        return false, "No active pagination"
+    
+    set {page_number} to 0
+    
+    if size of {args} > 0:
+        if {args[0]} is "next":
+            set {page_number} to {page::%{player}%::%{title}%::current_page} + 1
+        else if {args[0]} is "prev" or {args[0]} is "previous":
+            set {page_number} to {page::%{player}%::%{title}%::current_page} - 1
+        else if is_number({args[0]}):
+            set {page_number} to {args[0]} as number - 1  # Convert to 0-based
+        else:
+            return false, "Invalid page number"
+    
+    show_page({player}, {title}, {page_number})
+    return true, ""
+
+# Function to clean up pagination data
+function cleanup_pagination(player, title):
+    if {page::%{player}%::%{title}%::items} is set:
+        delete {page::%{player}%::%{title}%::items}
+        delete {page::%{player}%::%{title}%::items_per_page}
+        delete {page::%{player}%::%{title}%::current_page}
+        delete {page::%{player}%::%{title}%::command}
+    
+    return true, ""

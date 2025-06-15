@@ -1,0 +1,145 @@
+# Hexicript Main Configuration
+# This file contains all the main configuration options for Hexicript
+
+# Plugin settings
+plugin:
+  # Enable or disable the plugin
+  enabled: true
+  
+  # Debug mode (shows more detailed logs)
+  debug: false
+  
+  # Language file to use (without .yml)
+  language: en_us
+  
+  # Auto-update settings
+  update_check: true
+  auto_download_updates: false
+
+# Script settings
+script:
+  # Default script file extension (without dot)
+  extension: hxs
+  
+  # Maximum execution time in milliseconds (0 for unlimited)
+  max_execution_time: 5000
+  
+  # Memory limit in MB (0 for unlimited)
+  memory_limit: 128
+  
+  # Whether to enable script metrics
+  enable_metrics: true
+
+# Storage settings
+storage:
+  # Storage type (YAML, JSON, MYSQL, SQLITE)
+  type: YAML
+  
+  # Database settings (only used if type is MYSQL)
+  database:
+    host: localhost
+    port: 3306
+    name: hexicript
+    username: root
+    password: ""
+    
+  # Auto-save interval in seconds (0 to disable)
+  auto_save_interval: 300
+
+# Performance settings
+performance:
+  # Maximum number of concurrent script executions
+  max_concurrent_scripts: 50
+  
+  # Script execution thread pool size
+  thread_pool_size: 10
+  
+  # Cache TTL in seconds
+  cache_ttl: 3600
+
+# Logging settings
+logging:
+  # Log level (SEVERE, WARNING, INFO, CONFIG, FINE, FINER, FINEST)
+  level: INFO
+  
+  # Whether to log to file
+  log_to_file: true
+  
+  # Whether to log to console
+  log_to_console: true
+  
+  # Maximum log file size in MB
+  max_file_size: 10
+  
+  # Maximum number of log files to keep
+  max_files: 5
+
+# Security settings
+security:
+  # Whether to enable sandbox mode
+  sandbox_mode: true
+  
+  # List of restricted operations (when sandbox is enabled)
+  restricted_operations:
+    - file.delete
+    - file.write
+    - http.request
+    - command.execute
+    
+  # List of allowed domains for HTTP requests (empty to allow all)
+  allowed_domains: []
+
+# API settings
+api:
+  # Whether to enable the API
+  enabled: true
+  
+  # API version
+  version: 1.0
+  
+  # API key (leave empty to disable authentication)
+  api_key: ""
+  
+  # Rate limiting (requests per minute per IP, 0 to disable)
+  rate_limit: 60
+
+# Web interface settings
+web_interface:
+  # Whether to enable the web interface
+  enabled: false
+  
+  # Host to bind to (0.0.0.0 for all interfaces)
+  host: 127.0.0.1
+  
+  # Port to listen on
+  port: 8080
+  
+  # Whether to enable HTTPS
+  https: false
+  
+  # SSL certificate settings (only if https is true)
+  ssl_cert: ""
+  ssl_key: ""
+
+# Plugin integrations
+integrations:
+  # Whether to enable plugin integrations
+  enabled: true
+  
+  # List of plugins to integrate with
+  plugins:
+    - Vault
+    - WorldGuard
+    - WorldEdit
+    - PlaceholderAPI
+
+# Metrics settings
+metrics:
+  # Whether to enable bStats metrics
+  bstats: true
+  
+  # Whether to enable custom metrics collection
+  custom_metrics: true
+  
+  # Data retention period in days
+  retention_days: 30

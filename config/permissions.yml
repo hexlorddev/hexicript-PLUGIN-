@@ -1,0 +1,112 @@
+# Hexicript Permissions
+# This file defines all the permissions used by Hexicript
+
+# Base permission node
+hexicript:
+  description: "Base permission for Hexicript"
+  default: true
+  children:
+    # Admin permission
+    hexicript.admin:
+      description: "Gives access to all Hexicript admin commands"
+      default: op
+    
+    # Command permissions
+    hexicript.command:
+      description: "Base permission for all Hexicript commands"
+      default: true
+      children:
+        hexicript.command.help:
+          description: "Allows using the help command"
+          default: true
+        
+        hexicript.command.reload:
+          description: "Allows reloading the plugin"
+          default: op
+        
+        hexicript.command.debug:
+          description: "Allows toggling debug mode"
+          default: op
+        
+        hexicript.command.version:
+          description: "Allows checking the plugin version"
+          default: true
+        
+        hexicript.command.scripts:
+          description: "Allows listing loaded scripts"
+          default: true
+    
+    # Script permissions
+    hexicript.script:
+      description: "Base permission for script-related features"
+      default: true
+      children:
+        hexicript.script.execute:
+          description: "Allows executing scripts"
+          default: true
+        
+        hexicript.script.manage:
+          description: "Allows managing scripts (create, edit, delete)"
+          default: op
+        
+        hexicript.script.bypass.cooldown:
+          description: "Allows bypassing script cooldowns"
+          default: op
+        
+        hexicript.script.bypass.limit:
+          description: "Allows bypassing script execution limits"
+          default: op
+    
+    # Feature permissions
+    hexicript.feature:
+      description: "Base permission for feature toggles"
+      default: true
+      children:
+        hexicript.feature.api:
+          description: "Allows using the Hexicript API"
+          default: op
+        
+        hexicript.feature.web:
+          description: "Allows accessing the web interface"
+          default: op
+        
+        hexicript.feature.metrics:
+          description: "Allows collecting metrics"
+          default: true
+    
+    # Integration permissions
+    hexicript.integration:
+      description: "Base permission for integrations"
+      default: true
+      children:
+        hexicript.integration.vault:
+          description: "Allows using Vault integration"
+          default: true
+        
+        hexicript.integration.worldguard:
+          description: "Allows using WorldGuard integration"
+          default: true
+        
+        hexicript.integration.placeholderapi:
+          description: "Allows using PlaceholderAPI integration"
+          default: true
+    
+    # Script-specific permissions (dynamically generated)
+    hexicript.scripts:
+      description: "Container for script-specific permissions"
+      default: true
+
+# Example script-specific permission (auto-generated for each script)
+# hexicript.script.example:
+#   description: "Allows using the example script"
+#   default: true
+
+# Permission for script commands (auto-generated for each command in scripts)
+# hexicript.command.script.example:
+#   description: "Allows using the /example command"
+#   default: true
+
+# Permission for script events (auto-generated for each event in scripts)
+# hexicript.event.script.example:
+#   description: "Allows triggering events for the example script"
+#   default: true

@@ -1,0 +1,242 @@
+# Hexicript Messages
+# English (United States) Language File
+
+# Plugin messages
+plugin:
+  # General messages
+  enabled: "&aHexicript has been enabled!"
+  disabled: "&cHexicript has been disabled!"
+  reloaded: "&aConfiguration and scripts reloaded successfully!"
+  no_permission: "&cYou don't have permission to do that!"
+  player_only: "&cThis command can only be used by players!"
+  console_only: "&cThis command can only be used from console!"
+  invalid_usage: "&cInvalid usage! &7%usage%"
+  
+  # Update messages
+  update_available: "&aA new version of Hexicript is available: &e%version%"
+  update_downloading: "&aDownloading update..."
+  update_downloaded: "&aUpdate downloaded! Restart the server to apply changes."
+  update_failed: "&cFailed to check for updates: %error%"
+  
+  # Debug messages
+  debug_enabled: "&eDebug mode has been &aenabled"
+  debug_disabled: "&eDebug mode has been &cdisabled"
+
+# Command messages
+commands:
+  # Main command
+  hexicript:
+    help:
+      - "&6&lHexicript &7- &fHelp Menu"
+      - "&7&m----------------------------------------"
+      - "&e/hexicript help &7- &fShow this help menu"
+      - "&e/hexicript reload &7- &fReload the plugin"
+      - "&e/hexicript debug &7- &fToggle debug mode"
+      - "&e/hexicript version &7- &fShow plugin version"
+      - "&e/hexicript scripts &7- &fList loaded scripts"
+      - "&7&m----------------------------------------"
+    
+    # Sub-commands
+    reload:
+      success: "&aConfiguration and scripts reloaded successfully!"
+      error: "&cAn error occurred while reloading: %error%"
+    
+    debug:
+      toggled_on: "&eDebug mode has been &aenabled"
+      toggled_off: "&eDebug mode has been &cdisabled"
+    
+    version:
+      message: "&6Hexicript &7v%version% &7by &e%authors%"
+    
+    scripts:
+      header: "&6&lLoaded Scripts &7(%count%)"
+      list_item: "&7- &e%name% &7(%lines% lines, %size% KB)"
+      none_loaded: "&cNo scripts are currently loaded."
+
+# Script related messages
+scripts:
+  # Loading messages
+  loading: "&7Loading scripts..."
+  loaded: "&aLoaded &e%count% &ascript(s) in &e%time%ms"
+  load_error: "&cFailed to load script &e%script%&c: &7%error%"
+  
+  # Execution messages
+  execution_started: "&7Executing script &e%script%&7..."
+  execution_completed: "&7Script &e%script% &7completed in &e%time%ms"
+  execution_failed: "&cScript &e%script% &cfailed: &7%error%"
+  execution_timeout: "&cScript &e%script% &ctimed out after &e%time%ms"
+  
+  # Debug messages
+  debug_execution: "&7[&eDEBUG&7] &e%script% &7- %message%"
+  debug_error: "&7[&cERROR&7] &e%script% &7- %error%"
+
+# API messages
+api:
+  # Authentication
+  invalid_key: "&cInvalid API key!"
+  rate_limited: "&cYou are being rate limited. Please try again later."
+  
+  # Errors
+  not_found: "&cThe requested resource was not found."
+  internal_error: "&cAn internal error occurred. Please try again later."
+  invalid_request: "&cInvalid request: %error%"
+
+# Web interface messages
+web:
+  title: "Hexicript Web Interface"
+  welcome: "Welcome to Hexicript Web Interface"
+  login: "Login"
+  username: "Username"
+  password: "Password"
+  submit: "Submit"
+  cancel: "Cancel"
+  
+  # Navigation
+  nav_dashboard: "Dashboard"
+  nav_scripts: "Scripts"
+  nav_console: "Console"
+  nav_players: "Players"
+  nav_settings: "Settings"
+  
+  # Script editor
+  editor_title: "Script Editor"
+  editor_save: "Save"
+  editor_save_success: "Script saved successfully!"
+  editor_save_error: "Failed to save script: %error%"
+  editor_new_script: "New Script"
+  editor_script_name: "Script Name"
+  
+  # Console
+  console_title: "Server Console"
+  console_clear: "Clear"
+  console_send: "Send"
+  console_placeholder: "Type a command..."
+
+# Permissions
+permissions:
+  # Base permissions
+  base: "hexicript"
+  admin: "hexicript.admin"
+  
+  # Command permissions
+  command:
+    help: "hexicript.command.help"
+    reload: "hexicript.command.reload"
+    debug: "hexicript.command.debug"
+    version: "hexicript.command.version"
+    scripts: "hexicript.command.scripts"
+  
+  # Script permissions
+  script:
+    execute: "hexicript.script.execute"
+    manage: "hexicript.script.manage"
+  
+  # Feature permissions
+  feature:
+    api: "hexicript.feature.api"
+    web: "hexicript.feature.web"
+
+# PlaceholderAPI placeholders (if PlaceholderAPI is installed)
+placeholders:
+  scripts_loaded: "%scripts_loaded%"
+  scripts_enabled: "%scripts_enabled%"
+  scripts_disabled: "%scripts_disabled%"
+  memory_usage: "%memory_usage%"
+  uptime: "%uptime%"
+
+# GUI titles
+gui:
+  main_menu: "&6Hexicript &7v%version%"
+  scripts_menu: "&6Scripts &7(%count%)"
+  script_editor: "&6Edit Script: &e%name%"
+  confirm_delete: "&cConfirm Deletion"
+  
+  # Buttons
+  button_back: "&cBack"
+  button_next: "&aNext"
+  button_confirm: "&aConfirm"
+  button_cancel: "&cCancel"
+  button_delete: "&cDelete"
+  button_edit: "&eEdit"
+  button_reload: "&bReload"
+  button_save: "&aSave"
+  button_close: "&7Close"
+
+# Time formats
+time:
+  # Short format (e.g., 1s, 2m, 3h)
+  short:
+    second: "%ss"
+    minute: "%sm"
+    hour: "%sh"
+    day: "%sd"
+    
+  # Long format (e.g., 1 second, 2 minutes, 3 hours)
+  long:
+    second: "%s second%s"
+    minute: "%s minute%s"
+    hour: "%s hour%s"
+    day: "%s day%s"
+
+# Number formats
+number:
+  # Decimal format (e.g., 1.5K, 2.3M)
+  decimal:
+    thousand: "%.1fK"
+    million: "%.1fM"
+    billion: "%.1fB"
+    
+  # File size format (e.g., 1.5 KB, 2.3 MB)
+  filesize:
+    byte: "%s B"
+    kilobyte: "%.1f KB"
+    megabyte: "%.1f MB"
+    gigabyte: "%.1f GB"
+
+# Colors
+colors:
+  primary: "&6"
+  secondary: "&e"
+  success: "&a"
+  error: "&c"
+  info: "&b"
+  warning: "&e"
+  highlight: "&6"
+  normal: "&7"
+  dark: "&8"
+  light: "&f"
+
+# Messages for specific features
+features:
+  # Script editor
+  script_editor:
+    unsaved_changes: "&eYou have unsaved changes. Are you sure you want to exit?"
+    confirm_delete: "&cAre you sure you want to delete this script? This cannot be undone!"
+    
+  # Auto-updater
+  updater:
+    checking: "&7Checking for updates..."
+    up_to_date: "&aYou are running the latest version of Hexicript!"
+    
+  # Metrics
+  metrics:
+    enabled: "&aMetrics collection has been enabled"
+    disabled: "&cMetrics collection has been disabled"
+
+# Messages for specific integrations
+integrations:
+  # Vault
+  vault:
+    not_found: "&cVault not found. Economy features will be disabled."
+    no_economy: "&cNo economy plugin found. Economy features will be disabled."
+    
+  # WorldGuard
+  worldguard:
+    not_found: "&cWorldGuard not found. Region protection will be disabled."
+    
+  # PlaceholderAPI
+  placeholderapi:
+    not_found: "&cPlaceholderAPI not found. Placeholders will not be available."
+    
+  # Other plugins
+  plugin_not_found: "&e%plugin% &cnot found. Some features may be disabled."

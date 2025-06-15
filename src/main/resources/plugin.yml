@@ -1,0 +1,132 @@
+name: hexicript
+version: 2.0.0
+description: The Ultimate Minecraft Scripting Language - Enhanced performance, advanced features, and natural syntax
+author: hexlorddev
+website: https://github.com/hexlorddev/hexicript
+main: dev.hexlord.hexicript.HexicriptPlugin
+
+# Plugin requirements
+api-version: 1.21
+load: STARTUP
+depends: []
+softdepend: [Vault, WorldEdit, PlaceholderAPI, Citizens, MythicMobs, Dynmap]
+
+# Commands
+commands:
+  hexicript:
+    description: Main hexicript command
+    usage: |
+      §6hexicript Commands:
+      §e/hexicript reload §7- Reload all scripts and configuration
+      §e/hexicript list §7- List all loaded scripts  
+      §e/hexicript info <script> §7- Get information about a script
+      §e/hexicript enable <script> §7- Enable a script
+      §e/hexicript disable <script> §7- Disable a script
+      §e/hexicript test <script> §7- Test script syntax
+      §e/hexicript variables [player] §7- View script variables
+      §e/hexicript performance §7- View performance statistics
+    aliases: [hx, hcript]
+    permission: hexicript.admin
+    permission-message: §cYou don't have permission to use hexicript commands!
+    
+  hxreload:
+    description: Quick reload command for hexicript
+    usage: /hxreload
+    permission: hexicript.admin
+    permission-message: §cYou don't have permission to reload hexicript!
+    
+  hxrun:
+    description: Execute hexicript code directly
+    usage: /hxrun <code>
+    permission: hexicript.run
+    permission-message: §cYou don't have permission to run hexicript code!
+    
+  hxedit:
+    description: Open script editor interface
+    usage: /hxedit [script]
+    permission: hexicript.edit
+    permission-message: §cYou don't have permission to edit scripts!
+
+# Permissions
+permissions:
+  hexicript.*:
+    description: All hexicript permissions
+    children:
+      hexicript.admin: true
+      hexicript.edit: true
+      hexicript.run: true
+      hexicript.reload: true
+      hexicript.scripts.*: true
+      
+  hexicript.admin:
+    description: Administrator permissions for hexicript
+    default: op
+    children:
+      hexicript.edit: true
+      hexicript.run: true
+      hexicript.reload: true
+      hexicript.scripts.*: true
+      
+  hexicript.edit:
+    description: Permission to edit and create scripts
+    default: op
+    children:
+      hexicript.scripts.create: true
+      hexicript.scripts.modify: true
+      hexicript.scripts.delete: true
+      
+  hexicript.run:
+    description: Permission to execute hexicript code
+    default: op
+    
+  hexicript.reload:
+    description: Permission to reload scripts and configuration
+    default: op
+    
+  hexicript.scripts.*:
+    description: Access to all script management features
+    default: op
+    children:
+      hexicript.scripts.create: true
+      hexicript.scripts.modify: true
+      hexicript.scripts.delete: true
+      hexicript.scripts.enable: true
+      hexicript.scripts.disable: true
+      
+  hexicript.scripts.create:
+    description: Permission to create new scripts
+    default: op
+    
+  hexicript.scripts.modify:
+    description: Permission to modify existing scripts
+    default: op
+    
+  hexicript.scripts.delete:
+    description: Permission to delete scripts
+    default: op
+    
+  hexicript.scripts.enable:
+    description: Permission to enable scripts
+    default: op
+    
+  hexicript.scripts.disable:
+    description: Permission to disable scripts
+    default: op
+
+  # User permissions
+  hexicript.user:
+    description: Basic user permissions for hexicript features
+    default: true
+    
+  # Script-specific permissions (examples)
+  hexicript.script.admin-tools:
+    description: Permission to use admin tool scripts
+    default: op
+    
+  hexicript.script.minigames:
+    description: Permission to participate in scripted minigames
+    default: true
+    
+  hexicript.script.economy:
+    description: Permission to use economy-related scripts
+    default: true

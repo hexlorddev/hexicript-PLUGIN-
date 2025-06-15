@@ -1,0 +1,125 @@
+# Advanced Shop System with Hexicript
+# Save this in plugins/Hexicript/scripts/
+
+# Initialize shop data structure
+on script load:
+    # Create sample shop items if they don't exist
+    if {shop-items} is not set:
+        set {shop-items::diamond_sword} to create item diamond_sword with:
+            name: "&bSharp Diamond Sword"
+            lore: ["&7A powerful weapon!", "&6Price: &a5 diamonds"]
+            enchantments: ["sharpness:3", "unbreaking:2"]
+            
+        set {shop-items::healing_potion} to create item potion with:
+            name: "&cHealing Potion"
+            lore: ["&7Restores 5 hearts", "&6Price: &a3 emeralds"]
+            potion-type: "healing"
+            potion-level: 1
+    
+    # Load prices from config or set defaults
+    if {prices::diamond_sword} is not set:
+        set {prices::diamond_sword} to "5 diamond"
+    if {prices::healing_potion} is not set:
+        set {prices::healing_potion} to "3 emerald"
+
+# Shop command
+command "shop":
+    aliases: ["openshop", "trades"]
+    description: "Open the shop menu"
+    permission: "hexicript.shop.use"
+    
+    execute:
+        if sender is not player:
+            send "&cThis command can only be used by players!" to sender
+            return
+            
+        # Create the shop GUI
+        create gui "&6Item Shop" with size 27 and id "shop:main"
+        
+        # Add items to the shop
+        set slot 11 of current gui to {shop-items::diamond_sword}
+        set slot 13 of current gui to {shop-items::healing_potion}
+        
+        # Add info item
+        set slot 15 of current gui to create item book with:
+            name: "&eShop Info"
+            lore: ["&7Click on items to buy!", "&aYour balance: &6%{player}::balance}% coins"]
+        
+        # Open the GUI for the player
+        open current gui for player
+
+# Handle shop interactions
+gui click in "shop:main":
+    cancel event
+    
+    set {item} to clicked item
+    
+    # Check which item was clicked
+    if {item} is similar to {shop-items::diamond_sword}:
+        set {price} to {prices::diamond_sword}
+        set {item-to-give} to {shop-items::diamond_sword}
+        set {item-name} to "Diamond Sword"
+    else if {item} is similar to {shop-items::healing_potion}:
+        set {price} to {prices::healing_potion}
+        set {item-to-give} to {shop-items::healing_potion}
+        set {item-name} to "Healing Potion"
+    else:
+        return
+    
+    # Check if player can afford the item
+    if player's inventory contains at least {price}:
+        # Remove payment
+        remove {price} from player's inventory
+        
+        # Give item
+        give {item-to-give} to player
+        
+        # Play success effects
+        play sound "entity.experience_orb.pickup" at player with volume 1.0 and pitch 1.5
+        send title "&aPurchase Complete!" with subtitle "&7You bought a {item-name}" to player with fadein 10 stay 40 fadeout 10
+    else:
+        # Not enough money
+        play sound "block.note_block.bass" at player with volume 1.0 and pitch 0.5
+        send title "&cNot enough resources!" with subtitle "&7You need {price}" to player with fadein 10 stay 40 fadeout 10
+
+# Admin command to add shop items
+command "shop additem":
+    permission: "hexicript.shop.admin"
+    usage: /shop additem <id> <price>
+    
+    execute:
+        if args size is not 2:
+            send "&cUsage: /shop additem <id> <price>" to sender
+            return
+            
+        set {id} to arg 1
+        set {price} to arg 2
+        
+        # Get the item in player's hand
+        set {item} to player's held item
+        
+        if {item} is air:
+            send "&cYou must be holding an item!" to sender
+            return
+            
+        # Save the item and price
+        set {shop-items::%{id}%} to {item}
+        set {prices::%{id}%} to {price}
+        
+        send "&aAdded item to shop with ID '&e{id}&a' for &6{price}" to sender
+        
+    tab complete:
+        if args size is 1 or args size is 2:
+            return ["diamond_sword", "healing_potion", "custom_item"]
+        return []
+
+# Save shop data periodically
+every 10 minutes:
+    # In a real plugin, you would save to a database here
+    console log "[Shop] Shop data saved"
+
+# Clean up on script unload
+on script unload:
+    console log "[Shop] Saving shop data..."
+    # Save data to database or file
+    console log "[Shop] Shop system unloaded"

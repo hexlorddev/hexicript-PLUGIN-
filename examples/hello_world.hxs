@@ -1,0 +1,34 @@
+// Hexicript Example: Hello World
+// Save this file in plugins/Hexicript/scripts/
+
+// This function is called when the script is loaded
+function onEnable() {
+    console.log("Hello, Hexicript!");
+    
+    // Register a command
+    registerCommand("hello", function(sender, args) {
+        if (sender instanceof Player) {
+            let player = sender;
+            player.sendMessage("§aHello, " + player.getName() + "!");
+        } else {
+            console.log("Hello, Console!");
+        }
+        return true;
+    });
+    
+    // Schedule a repeating task
+    scheduleRepeating(function() {
+        console.log("This message appears every minute!");
+    }, 1200, 1200); // 60 seconds * 20 ticks = 1200 ticks
+}
+
+// This function is called when the script is unloaded
+function onDisable() {
+    console.log("Goodbye, Hexicript!");
+}
+
+// Event handler for player join
+event("PlayerJoinEvent", function(event) {
+    let player = event.getPlayer();
+    player.sendMessage("§6Welcome to the server, " + player.getName() + "!");
+});

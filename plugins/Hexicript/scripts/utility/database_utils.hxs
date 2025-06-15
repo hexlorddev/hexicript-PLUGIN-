@@ -1,0 +1,652 @@
+# Database Utility Script
+# Provides utility functions for database operations in Hexicript
+
+# Database configuration
+set {db::config} to {
+    "type": "sqlite",  # sqlite, mysql, mariadb, postgresql
+    "host": "localhost",
+    "port": 3306,
+    "database": "hexicript",
+    "username": "",
+    "password": "",
+    "table_prefix": "hx_",
+    "use_ssl": false,
+    "pool_size": 10,
+    "connection_timeout": 30000,  # 30 seconds
+    "max_lifetime": 1800000,  # 30 minutes
+    "auto_reconnect": true,
+    "migrate": true,
+    "migrations_table": "schema_migrations",
+    "migrations_path": "plugins/Hexicript/migrations"
+}
+
+# Initialize the database connection
+function db_init(config = null):
+    if {config} is not null:
+        set {db::config} to {config}
+    
+    # Ensure database directory exists
+    if {db::config["type"]} is "sqlite":
+        set {db_dir} to "plugins/Hexicript/data"
+        if not directory exists({db_dir}):
+            create directory {db_dir}
+        
+        set {db_file} to "%{db_dir}%/%{db::config["database"]}.db"
+        set {db::config}["path"] to {db_file}
+    
+    # Initialize database connection
+    set {db::connection} to database connect {db::config}
+    
+    # Run migrations if enabled
+    if {db::config["migrate"]}:
+        db_migrate()
+    
+    return {db::connection}
+
+# Close the database connection
+function db_close():
+    if {db::connection} is set:
+        database close {db::connection}
+        delete {db::connection}
+    
+    return true
+
+# Execute a query and return the result
+function db_query(query, params = []):
+    if {db::connection} is not set:
+        db_init()
+    
+    set {result} to database query {db::connection} with query {query} and parameters {params}
+    return {result}
+
+# Execute an update query and return the number of affected rows
+function db_update(query, params = []):
+    if {db::connection} is not set:
+        db_init()
+    
+    set {result} to database update {db::connection} with query {query} and parameters {params}
+    return {result}
+
+# Execute an insert query and return the last insert ID
+function db_insert(query, params = []):
+    if {db::connection} is not set:
+        db_init()
+    
+    set {result} to database insert {db::connection} with query {query} and parameters {params}
+    return {result}
+
+# Begin a transaction
+function db_begin_transaction():
+    if {db::connection} is not set:
+        db_init()
+    
+    database begin transaction {db::connection}
+    return true
+
+# Commit a transaction
+function db_commit():
+    if {db::connection} is not set:
+        return false
+    
+    database commit {db::connection}
+    return true
+
+# Rollback a transaction
+function db_rollback():
+    if {db::connection} is not set:
+        return false
+    
+    database rollback {db::connection}
+    return true
+
+# Check if a table exists
+function db_table_exists(table_name):
+    try:
+        set {query} to ""
+        
+        if {db::config["type"]} is "sqlite":
+            set {query} to "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
+        else if {db::config["type"]} is "mysql" or {db::config["type"]} is "mariadb":
+            set {query} to "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?"
+            set {params} to [{db::config["database"]}, "%{db::config["table_prefix"]}%%{table_name}%"]
+        else if {db::config["type"]} is "postgresql":
+            set {query} to "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ?"
+            set {params} to ["%{db::config["table_prefix"]}%%{table_name}%"]
+        
+        set {result} to db_query({query}, {params})
+        return size of {result} > 0
+    catch {error}:
+        console log "Error checking if table exists: %{error}%"
+        return false
+
+# Get table information (columns, types, etc.)
+function db_table_info(table_name):
+    try:
+        set {query} to ""
+        set {params} to []
+        
+        if {db::config["type"]} is "sqlite":
+            set {query} to "PRAGMA table_info(?)"
+            set {params} to ["%{db::config["table_prefix"]}%%{table_name}%"]
+        else if {db::config["type"]} is "mysql" or {db::config["type"]} is "mariadb":
+            set {query} to "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_KEY, EXTRA FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION"
+            set {params} to [{db::config["database"]}, "%{db::config["table_prefix"]}%%{table_name}%"]
+        else if {db::config["type"]} is "postgresql":
+            set {query} to "SELECT column_name, data_type, is_nullable, column_default, '' as extra FROM information_schema.columns WHERE table_schema = 'public' AND table_name = ? ORDER BY ordinal_position"
+            set {params} to ["%{db::config["table_prefix"]}%%{table_name}%"]
+        
+        return db_query({query}, {params})
+    catch {error}:
+        console log "Error getting table info: %{error}%"
+        return []
+
+# Create a table if it doesn't exist
+function db_create_table(table_name, columns, primary_key = "id", auto_increment = true):
+    if db_table_exists({table_name}):
+        return true, "Table already exists"
+    
+    try:
+        set {query} to "CREATE TABLE %{db::config["table_prefix"]}%%{table_name}% ("
+        set {column_defs} to []
+        
+        # Add primary key
+        if {auto_increment} and ({db::config["type"]} is "mysql" or {db::config["type"]} is "mariadb"):
+            add "`%{primary_key}%` INT NOT NULL AUTO_INCREMENT" to {column_defs}
+        else if {auto_increment} and {db::config["type"]} is "postgresql":
+            add "%{primary_key}% SERIAL" to {column_defs}
+        else if {auto_increment} and {db::config["type"]} is "sqlite":
+            add "`%{primary_key}%` INTEGER PRIMARY KEY AUTOINCREMENT" to {column_defs}
+        else:
+            add "`%{primary_key}%` INTEGER" to {column_defs}
+        
+        # Add other columns
+        loop {columns}:
+            set {column} to loop-value
+            set {name} to {column}["name"]
+            set {type} to {column}["type"]
+            set {null} to if {column}["null"] is set then {column}["null"] else true
+            set {default} to if {column}["default"] is set then {column}["default"] else null
+            
+            set {def} to "`%{name}%` %{type}%"
+            
+            if not {null}:
+                set {def} to "%{def}% NOT NULL"
+            
+            if {default} is not null:
+                if {default} is "CURRENT_TIMESTAMP":
+                    set {def} to "%{def}% DEFAULT %{default}%"
+                else:
+                    set {def} to "%{def}% DEFAULT '%{default}%'"
+            
+            add {def} to {column_defs}
+        
+        # Add primary key if not SQLite with auto-increment
+        if not ({db::config["type"]} is "sqlite" and {auto_increment}):
+            add "PRIMARY KEY (`%{primary_key}%`)" to {column_defs}
+        
+        # Add foreign keys if any
+        if {columns}["foreign_keys"] is set:
+            loop {columns}["foreign_keys"]:
+                set {fk} to loop-value
+                add "FOREIGN KEY (`%{fk["column"]}%`) REFERENCES %{db::config["table_prefix"]}%%{fk["references"]}%(`%{fk["on"]}%`)" to {column_defs}
+        
+        # Add unique constraints if any
+        if {columns}["unique"] is set:
+            loop {columns}["unique"]:
+                set {cols} to loop-value
+                if {cols} is list:
+                    set {cols_str} to ""
+                    loop {cols}:
+                        if {cols_str} is not "":
+                            set {cols_str} to "%{cols_str}%, "
+                        set {cols_str} to "%{cols_str}%`%loop-value%`"
+                    add "UNIQUE (%{cols_str}%)" to {column_defs}
+                else:
+                    add "UNIQUE (`%{cols}%`)" to {column_defs}
+        
+        # Add indexes if any
+        if {columns}["indexes"] is set:
+            loop {columns}["indexes"]:
+                set {idx} to loop-value
+                if {idx} is list:
+                    set {idx_cols} to ""
+                    loop {idx}:
+                        if {idx_cols} is not "":
+                            set {idx_cols} to "%{idx_cols}%, "
+                        set {idx_cols} to "%{idx_cols}%`%loop-value%`"
+                    add "INDEX (`%{idx_cols}%`)" to {column_defs}
+                else:
+                    add "INDEX (`%{idx}%`)" to {column_defs}
+        
+        # Build the final query
+        set {query} to "%{query}% %{column_defs::', '}%)"
+        
+        # Add engine and charset for MySQL/MariaDB
+        if {db::config["type"]} is "mysql" or {db::config["type"]} is "mariadb":
+            set {query} to "%{query}% ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+        
+        # Execute the query
+        db_query({query})
+        
+        return true, "Table created successfully"
+    catch {error}:
+        return false, "Error creating table: %{error}%"
+
+# Insert a record into a table
+function db_insert_record(table_name, data, return_id = true):
+    try:
+        if not db_table_exists({table_name}):
+            return false, "Table does not exist"
+        
+        set {columns} to []
+        set {placeholders} to []
+        set {values} to []
+        
+        loop {data}:
+            set {key} to loop-key
+            set {value} to loop-value
+            
+            add "`%{key}%`" to {columns}
+            add "?" to {placeholders}
+            add {value} to {values}
+        
+        set {query} to "INSERT INTO %{db::config["table_prefix"]}%%{table_name}% (%{columns::', '}%) VALUES (%{placeholders::', '}%)"
+        
+        if {return_id}:
+            set {id} to db_insert({query}, {values})
+            return {id}, "Record inserted with ID: %{id}%"
+        else:
+            set {result} to db_update({query}, {values})
+            return {result}, "%{result}% record(s) inserted"
+    catch {error}:
+        return false, "Error inserting record: %{error}%"
+
+# Update records in a table
+function db_update_records(table_name, data, where = "", where_params = []):
+    try:
+        if not db_table_exists({table_name}):
+            return false, "Table does not exist"
+        
+        set {updates} to []
+        set {values} to []
+        
+        loop {data}:
+            set {key} to loop-key
+            set {value} to loop-value
+            
+            add "`%{key}%` = ?" to {updates}
+            add {value} to {values}
+        
+        # Add WHERE clause parameters
+        if {where} is not "":
+            loop {where_params}:
+                add loop-value to {values}
+        
+        set {query} to "UPDATE %{db::config["table_prefix"]}%%{table_name}% SET %{updates::', '}%"
+        
+        if {where} is not "":
+            set {query} to "%{query}% WHERE %{where}%"
+        
+        set {result} to db_update({query}, {values})
+        return {result}, "%{result}% record(s) updated"
+    catch {error}:
+        return false, "Error updating records: %{error}%"
+
+# Delete records from a table
+function db_delete_records(table_name, where = "", where_params = []):
+    try:
+        if not db_table_exists({table_name}):
+            return false, "Table does not exist"
+        
+        set {query} to "DELETE FROM %{db::config["table_prefix"]}%%{table_name}%"
+        
+        if {where} is not "":
+            set {query} to "%{query}% WHERE %{where}%"
+        
+        set {result} to db_update({query}, {where_params})
+        return {result}, "%{result}% record(s) deleted"
+    catch {error}:
+        return false, "Error deleting records: %{error}%"
+
+# Select records from a table
+function db_select_records(table_name, columns = "*", where = "", where_params = [], order_by = "", limit = 0, offset = 0):
+    try:
+        if not db_table_exists({table_name}):
+            return [], "Table does not exist"
+        
+        set {query} to "SELECT %{columns}% FROM %{db::config["table_prefix"]}%%{table_name}%"
+        
+        if {where} is not "":
+            set {query} to "%{query}% WHERE %{where}%"
+        
+        if {order_by} is not "":
+            set {query} to "%{query}% ORDER BY %{order_by}%"
+        
+        if {limit} > 0:
+            set {query} to "%{query}% LIMIT %{limit}%"
+            
+            if {offset} > 0:
+                set {query} to "%{query}% OFFSET %{offset}%"
+        
+        set {result} to db_query({query}, {where_params})
+        return {result}, ""
+    catch {error}:
+        return [], "Error selecting records: %{error}%"
+
+# Count records in a table
+function db_count_records(table_name, where = "", where_params = []):
+    try:
+        if not db_table_exists({table_name}):
+            return 0, "Table does not exist"
+        
+        set {query} to "SELECT COUNT(*) as count FROM %{db::config["table_prefix"]}%%{table_name}%"
+        
+        if {where} is not "":
+            set {query} to "%{query}% WHERE %{where}%"
+        
+        set {result} to db_query({query}, {where_params})
+        
+        if size of {result} > 0:
+            return {result[0]["count"]}, ""
+        else:
+            return 0, "No records found"
+    catch {error}:
+        return 0, "Error counting records: %{error}%"
+
+# Check if a record exists
+function db_record_exists(table_name, where, where_params = []):
+    set {count}, {error} to db_count_records({table_name}, {where}, {where_params})
+    
+    if {error} is not "":
+        return false, {error}
+    
+    return {count} > 0, ""
+
+# Get a single record by ID
+function db_find_record(table_name, id, id_column = "id"):
+    set {result}, {error} to db_select_records({table_name}, "*", "`%{id_column}%` = ?", [id], "", 1)
+    
+    if {error} is not "":
+        return null, {error}
+    
+    if size of {result} > 0:
+        return {result[0]}, ""
+    else:
+        return null, "Record not found"
+
+# Run database migrations
+function db_migrate():
+    try:
+        # Create migrations table if it doesn't exist
+        set {migrations_table} to "%{db::config["migrations_table"]}%"
+        
+        if not db_table_exists({migrations_table}):
+            set {columns} to [
+                {"name": "id", "type": "INTEGER", "null": false},
+                {"name": "migration", "type": "VARCHAR(255)", "null": false},
+                {"name": "batch", "type": "INTEGER", "null": false}
+            ]
+            
+            if {db::config["type"]} is "sqlite":
+                set {columns[0]["type"]} to "INTEGER PRIMARY KEY AUTOINCREMENT"
+            
+            db_create_table({migrations_table}, {columns}, "id", true)
+        
+        # Get all migration files
+        set {migrations_path} to {db::config["migrations_path"]}
+        
+        if not directory exists({migrations_path}):
+            create directory {migrations_path}
+            return true, "Migrations directory created"
+        
+        set {migration_files} to list files in {migrations_path} matching "*.sql"
+        
+        if size of {migration_files} is 0:
+            return true, "No migrations to run"
+        
+        # Get already run migrations
+        set {run_migrations} to []
+        set {result}, {error} to db_select_records({migrations_table}, "migration")
+        
+        if {error} is "" and size of {result} > 0:
+            loop {result}:
+                add loop-value["migration"] to {run_migrations}
+        
+        # Run new migrations
+        set {batch} to 1
+        
+        # Get the latest batch number
+        set {result}, {error} to db_query("SELECT MAX(batch) as max_batch FROM %{db::config["table_prefix"]}%%{migrations_table}%")
+        
+        if {error} is "" and size of {result} > 0 and {result[0]["max_batch"]} is not null:
+            set {batch} to {result[0]["max_batch"]} + 1
+        
+        set {migrations_run} to 0
+        
+        # Sort migration files by name
+        sort {migration_files} ascending
+        
+        # Begin transaction
+        db_begin_transaction()
+        
+        try:
+            loop {migration_files}:
+                set {filename} to loop-value
+                set {migration_name} to {filename} replace ".sql" with ""
+                
+                # Skip already run migrations
+                if {migration_name} is in {run_migrations}:
+                    continue
+                
+                # Read migration file
+                set {migration_path} to "%{migrations_path}%/%{filename}%"
+                set {migration_sql} to read file {migration_path}
+                
+                # Split into individual statements
+                set {statements} to split(";\n", {migration_sql})
+                
+                # Execute each statement
+                loop {statements}:
+                    set {statement} to trim(loop-value)
+                    
+                    if {statement} is not "":
+                        db_query({statement})
+                
+                # Record migration
+                db_insert("INSERT INTO %{db::config["table_prefix"]}%%{migrations_table}% (migration, batch) VALUES (?, ?)", [{migration_name}, {batch}])
+                
+                add 1 to {migrations_run}
+                console log "Ran migration: %{migration_name}%"
+            
+            # Commit transaction
+            db_commit()
+            
+            if {migrations_run} > 0:
+                return true, "%{migrations_run}% migration(s) run successfully"
+            else:
+                return true, "No new migrations to run"
+                
+        catch {error}:
+            # Rollback on error
+            db_rollback()
+            return false, "Migration failed: %{error}%"
+            
+    catch {error}:
+        return false, "Error running migrations: %{error}%"
+
+# Create a new migration file
+function db_create_migration(name):
+    try:
+        set {migrations_path} to {db::config["migrations_path"]}
+        
+        if not directory exists({migrations_path}):
+            create directory {migrations_path}
+        
+        set {timestamp} to current unix timestamp
+        set {filename} to "%{timestamp}%_%{name}.sql"
+        set {filepath} to "%{migrations_path}%/%{filename}%"
+        
+        # Create empty migration file
+        write file {filepath} with content "-- Add your SQL here"
+        
+        return true, "Created migration: %{filename}%"
+    catch {error}:
+        return false, "Error creating migration: %{error}%"
+
+# Backup the database
+function db_backup(backup_path = ""):
+    try:
+        if {backup_path} is "":
+            set {backup_dir} to "plugins/Hexicript/backups"
+            
+            if not directory exists({backup_dir}):
+                create directory {backup_dir}
+            
+            set {timestamp} to format_date("yyyy-MM-dd_HH-mm-ss")
+            set {backup_path} to "%{backup_dir}%/backup_%{timestamp}%.sql"
+        
+        if {db::config["type"]} is "sqlite":
+            # For SQLite, just copy the database file
+            set {db_file} to {db::config["path"]}
+            
+            if file exists({db_file}):
+                copy file from {db_file} to {backup_path}
+                return true, "Database backed up to %{backup_path}%"
+            else:
+                return false, "Database file not found: %{db_file}%"
+        else:
+            # For other databases, create a dump
+            # This would require external tools like mysqldump or pg_dump
+            # Implementation depends on the database type and available tools
+            return false, "Backup not implemented for %{db::config["type"]}%"
+    catch {error}:
+        return false, "Error backing up database: %{error}%"
+
+# Restore the database from a backup
+function db_restore(backup_path):
+    try:
+        if not file exists({backup_path}):
+            return false, "Backup file not found: %{backup_path}%"
+        
+        if {db::config["type"]} is "sqlite":
+            # For SQLite, just copy the backup file
+            set {db_file} to {db::config["path"]}
+            
+            # Close the connection first
+            db_close()
+            
+            # Copy the backup file
+            copy file from {backup_path} to {db_file}
+            
+            # Reconnect
+            db_init()
+            
+            return true, "Database restored from %{backup_path}%"
+        else:
+            # For other databases, restore from dump
+            # This would require external tools like mysql or psql
+            # Implementation depends on the database type and available tools
+            return false, "Restore not implemented for %{db::config["type"]}%"
+    catch {error}:
+        return false, "Error restoring database: %{error}%"
+
+# Format a date string
+function format_date(format, timestamp = null):
+    if {timestamp} is null:
+        set {timestamp} to current unix timestamp
+    
+    # This is a simplified version - in a real implementation, you would use a proper date formatting function
+    set {date} to date from unix timestamp {timestamp}
+    
+    # Replace format placeholders
+    set {formatted} to {format}
+    
+    # Year
+    set {formatted} to {formatted} replace "yyyy" with "%date-year%"
+    set {formatted} to {formatted} replace "yy" with "%substring of ("%date-year% + 10000") from 2%"
+    
+    # Month
+    set {month} to date-month of {date}
+    set {formatted} to {formatted} replace "MM" with "%if {month} < 10 then "0%{month}%" else "%{month}%"%"
+    set {formatted} to {formatted} replace "M" with "%{month}%"
+    
+    # Day
+    set {day} to date-day of {date}
+    set {formatted} to {formatted} replace "dd" with "%if {day} < 10 then "0%{day}%" else "%{day}%"%"
+    set {formatted} to {formatted} replace "d" with "%{day}%"
+    
+    # Hours (24-hour format)
+    set {hours} to date-hour of {date}
+    set {formatted} to {formatted} replace "HH" with "%if {hours} < 10 then "0%{hours}%" else "%{hours}%"%"
+    set {formatted} to {formatted} replace "H" with "%{hours}%"
+    
+    # Hours (12-hour format)
+    set {hours12} to {hours} % 12
+    if {hours12} is 0:
+        set {hours12} to 12
+    
+    set {formatted} to {formatted} replace "hh" with "%if {hours12} < 10 then "0%{hours12}%" else "%{hours12}%"%"
+    set {formatted} to {formatted} replace "h" with "%{hours12}%"
+    
+    # Minutes
+    set {minutes} to date-minute of {date}
+    set {formatted} to {formatted} replace "mm" with "%if {minutes} < 10 then "0%{minutes}%" else "%{minutes}%"%"
+    set {formatted} to {formatted} replace "m" with "%{minutes}%"
+    
+    # Seconds
+    set {seconds} to date-second of {date}
+    set {formatted} to {formatted} replace "ss" with "%if {seconds} < 10 then "0%{seconds}%" else "%{seconds}%"%"
+    set {formatted} to {formatted} replace "s" with "%{seconds}%"
+    
+    # AM/PM
+    if {hours} < 12:
+        set {formatted} to {formatted} replace "a" with "AM"
+    else:
+        set {formatted} to {formatted} replace "a" with "PM"
+    
+    # Timezone
+    set {formatted} to {formatted} replace "z" with "UTC"
+    
+    return {formatted}
+
+# Helper function to check if a string is a number
+function is_number(value):
+    try:
+        set {num} to {value} as number
+        return true
+    catch:
+        return false
+
+# Helper function to trim whitespace from a string
+function trim(text):
+    return {text} replace regex "^\\s+|\\s+$" with ""
+
+# Helper function to check if a directory exists
+function directory_exists(path):
+    # This would be implemented using server-specific file system APIs
+    # For the sake of this example, we'll assume it's implemented
+    return file exists {path} and not is file {path}
+
+# Helper function to list files in a directory
+function list_files(path, pattern = "*"):
+    # This would be implemented using server-specific file system APIs
+    # For the sake of this example, we'll return an empty list
+    return []
+
+# Helper function to read a file
+function read_file(path):
+    # This would be implemented using server-specific file system APIs
+    # For the sake of this example, we'll return an empty string
+    return ""
+
+# Helper function to write to a file
+function write_file(path, content):
+    # This would be implemented using server-specific file system APIs
+    # For the sake of this example, we'll do nothing
+    return true
+
+# Helper function to copy a file
+function copy_file(from, to):
+    # This would be implemented using server-specific file system APIs
+    # For the sake of this example, we'll do nothing
+    return true

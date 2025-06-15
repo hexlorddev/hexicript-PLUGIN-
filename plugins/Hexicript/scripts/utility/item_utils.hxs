@@ -1,0 +1,402 @@
+# Item Utility Script
+# Provides utility functions for item and inventory management
+
+# Function to create an item with custom properties
+function create_item(material, amount = 1, name = "", lore = [], enchantments = [], flags = [], unbreakable = false, custom_model_data = 0):
+    set {item} to new item of type {material} with amount {amount}
+    
+    if {name} is not "":
+        set display name of {item} to {name}
+    
+    if size of {lore} > 0:
+        set lore of {item} to {lore}
+    
+    loop {enchantments}:
+        set {parts} to split(":", loop-value)
+        if size of {parts} >= 2:
+            add enchantment {parts[0]} with level {parts[1]} to {item}
+    
+    loop {flags}:
+        add item flag loop-value to {item}
+    
+    if {unbreakable}:
+        set unbreakable state of {item} to true
+    
+    if {custom_model_data} > 0:
+        set custom model data of {item} to {custom_model_data}
+    
+    return {item}
+
+# Function to check if an item matches another item (ignoring amount)
+function items_match(item1, item2, check_meta = true):
+    if item1 is air or item2 is air:
+        return item1 is air and item2 is air
+    
+    if type of {item1} is not type of {item2}:
+        return false
+    
+    if not {check_meta}:
+        return true
+    
+    # Check display name
+    if display name of {item1} is not display name of {item2}:
+        return false
+    
+    # Check lore
+    if lore of {item1} is not lore of {item2}:
+        return false
+    
+    # Check enchantments
+    if enchantments of {item1} is not enchantments of {item2}:
+        return false
+    
+    # Check item flags
+    if item flags of {item1} is not item flags of {item2}:
+        return false
+    
+    # Check custom model data if available
+    if custom model data of {item1} is not custom model data of {item2}:
+        return false
+    
+    return true
+
+# Function to count items in a player's inventory
+function count_items(player, item, check_meta = true):
+    set {count} to 0
+    
+    loop player's inventory:
+        if items_match(loop-item, {item}, {check_meta}):
+            add amount of loop-item to {count}
+    
+    return {count}
+
+# Function to remove items from a player's inventory
+function remove_items(player, item, amount = 1, check_meta = true):
+    if {amount} <= 0:
+        return 0
+    
+    set {remaining} to {amount}
+    set {slots} to []
+    
+    # First pass: find all matching items
+    loop player's inventory with index:
+        if items_match(loop-item, {item}, {check_meta}):
+            add loop-index to {slots}
+    
+    # Second pass: remove items
+    loop {slots}:
+        set {slot} to loop-value
+        set {slot_item} to item in slot {slot} of player's inventory
+        
+        if {slot_item} is not air:
+            set {item_amount} to amount of {slot_item}
+            
+            if {item_amount} <= {remaining}:
+                # Remove the entire stack
+                set item in slot {slot} of player's inventory to air
+                subtract {item_amount} from {remaining}
+            else:
+                # Remove partial stack
+                set amount of {slot_item} to {item_amount} - {remaining}
+                set {remaining} to 0
+                break
+        
+        if {remaining} <= 0:
+            break
+    
+    return {amount} - {remaining}
+
+# Function to give an item to a player with inventory checks
+function give_item(player, item, drop_if_full = true):
+    if {item} is air:
+        return false, "Cannot give air"
+    
+    # Try to add to inventory first
+    if player's inventory can hold {item}:
+        give {item} to {player}
+        return true, "Item added to inventory"
+    
+    # Drop at player's location if no space
+    if {drop_if_full}:
+        drop item {item} at player's location
+        return true, "Inventory full, item dropped at your location"
+    
+    return false, "Inventory full and drop_if_full is false"
+
+# Function to get an item's display name with color codes
+function get_item_display_name(item):
+    if {item} is air:
+        return "Air"
+    
+    if display name of {item} is not "":
+        return display name of {item}
+    
+    # Fall back to material name if no display name is set
+    return format_material_name(type of {item})
+
+# Helper function to format material names
+function format_material_name(material):
+    set {name} to "{material}"  # Convert to string
+    set {name} to {name} replace "_" with " "  # Replace underscores with spaces
+    set {name} to capitalize_words({name})  # Capitalize words
+    return {name}
+
+# Helper function to capitalize words in a string
+function capitalize_words(text):
+    set {words} to split(" ", {text})
+    set {result} to ""
+    
+    loop {words}:
+        if loop-index > 0:
+            set {result} to "%{result}% "
+        
+        if length of loop-value > 0:
+            set {first_char} to substring of loop-value from 0 to 1
+            set {rest} to ""
+            
+            if length of loop-value > 1:
+                set {rest} to substring of loop-value from 1
+            
+            set {result} to "%{result}%%{first_char} to upper case%%{rest} to lower case%"
+    
+    return {result}
+
+# Function to serialize an item to a string
+function serialize_item(item):
+    if {item} is air:
+        return "AIR"
+    
+    set {result} to ""
+    
+    # Basic item data
+    set {result} to "%type of {item}%:%amount of {item}%"
+    
+    # Add metadata if present
+    set {meta_parts} to []
+    
+    if display name of {item} is not "":
+        add "name=%display name of {item}%" to {meta_parts}
+    
+    if size of (lore of {item}) > 0:
+        set {lore_str} to ""
+        loop lore of {item}:
+            if {lore_str} is not "":
+                set {lore_str} to "%{lore_str}%\n"
+            set {lore_str} to "%{lore_str}%%loop-value%"
+        
+        add "lore=%{lore_str}%" to {meta_parts}
+    
+    if size of (enchantments of {item}) > 0:
+        set {enchants} to []
+        loop enchantments of {item}:
+            add "%loop-enchantment%:%level of loop-enchantment on {item}%" to {enchants}
+        
+        add "enchantments=%{enchants::', '}%" to {meta_parts}
+    
+    if size of (item flags of {item}) > 0:
+        add "flags=%item flags of {item}%" to {meta_parts}
+    
+    if unbreakable state of {item} is true:
+        add "unbreakable=true" to {meta_parts}
+    
+    if custom model data of {item} > 0:
+        add "custom_model_data=%custom model data of {item}%" to {meta_parts}
+    
+    if size of {meta_parts} > 0:
+        set {result} to "%{result}%?%{meta_parts::'&'}%"
+    
+    return {result}
+
+# Function to deserialize an item from a string
+function deserialize_item(item_string):
+    if {item_string} is "AIR" or {item_string} is "" or {item_string} is null:
+        return air
+    
+    # Split into parts
+    set {parts} to split("?", {item_string}, 2)
+    set {base} to {parts[0]}
+    
+    # Parse base item
+    set {base_parts} to split(":", {base}, 2)
+    set {material} to {base_parts[0]}
+    set {amount} to 1
+    
+    if size of {base_parts} > 1 and is_number({base_parts[1]}):
+        set {amount} to {base_parts[1]} as number
+    
+    set {item} to new item of type {material} with amount {amount}
+    
+    # Parse metadata if present
+    if size of {parts} > 1:
+        set {metadata} to {parts[1]}
+        set {meta_parts} to split("&", {metadata})
+        
+        loop {meta_parts}:
+            set {key_value} to split("=", loop-value, 2)
+            
+            if size of {key_value} == 2:
+                set {key} to {key_value[0]} to lower case
+                set {value} to {key_value[1]}
+                
+                if {key} is "name":
+                    set display name of {item} to {value}
+                else if {key} is "lore":
+                    set lore of {item} to split("\n", {value})
+                else if {key} is "enchantments":
+                    loop split(", ", {value}):
+                        set {enchant_parts} to split(":", loop-value)
+                        if size of {enchant_parts} >= 2:
+                            add enchantment {enchant_parts[0]} with level {enchant_parts[1]} to {item}
+                else if {key} is "flags":
+                    loop split(", ", {value}):
+                        add item flag loop-value to {item}
+                else if {key} is "unbreakable":
+                    set unbreakable state of {item} to {value} as boolean
+                else if {key} is "custom_model_data" and is_number({value}):
+                    set custom model data of {item} to {value} as number
+    
+    return {item}
+
+# Function to check if an item has a specific enchantment
+function has_enchantment(item, enchantment, level = 1):
+    if {item} is air:
+        return false
+    
+    loop enchantments of {item}:
+        if loop-enchantment is {enchantment} and level of loop-enchantment on {item} >= {level}:
+            return true
+    
+    return false
+
+# Function to get an item's enchantment level
+function get_enchantment_level(item, enchantment):
+    if {item} is air:
+        return 0
+    
+    loop enchantments of {item}:
+        if loop-enchantment is {enchantment}:
+            return level of loop-enchantment on {item}
+    
+    return 0
+
+# Function to add an enchantment to an item
+function add_enchantment(item, enchantment, level = 1, ignore_restrictions = false):
+    if {item} is air:
+        return false
+    
+    if {ignore_restrictions} or {enchantment} can be applied to type of {item}:
+        add enchantment {enchantment} with level {level} to {item}
+        return true
+    
+    return false
+
+# Function to remove an enchantment from an item
+function remove_enchantment(item, enchantment):
+    if {item} is air:
+        return false
+    
+    if has_enchantment({item}, {enchantment}):
+        remove enchantment {enchantment} from {item}
+        return true
+    
+    return false
+
+# Function to repair an item (set durability to max)
+function repair_item(item):
+    if {item} is air or not has_durability({item}):
+        return false
+    
+    set durability of {item} to max durability of type of {item}
+    return true
+
+# Function to check if an item has durability
+function has_durability(item):
+    if {item} is air:
+        return false
+    
+    return max durability of type of {item} > 0
+
+# Function to get an item's durability percentage
+function get_durability_percentage(item):
+    if not has_durability({item}):
+        return 100.0
+    
+    set {max} to max durability of type of {item}
+    set {current} to {max} - durability of {item}
+    
+    return ({current} / {max}) * 100.0
+
+# Function to create a colored leather armor item
+function create_colored_leather_armor(type, color, name = "", lore = []):
+    if {type} is not in ["LEATHER_HELMET", "LEATHER_CHESTPLATE", "LEATHER_LEGGINGS", "LEATHER_BOOTS"]:
+        return null, "Invalid leather armor type"
+    
+    set {item} to new item of type {type}
+    
+    if {name} is not "":
+        set display name of {item} to {name}
+    
+    if size of {lore} > 0:
+        set lore of {item} to {lore}
+    
+    set color of {item} to {color}
+    
+    return {item}, ""
+
+# Function to create a player head with a specific skin
+function create_player_head(player_name, name = "", lore = []):
+    set {item} to player head of {player_name}
+    
+    if {name} is not "":
+        set display name of {item} to {name}
+    
+    if size of {lore} > 0:
+        set lore of {item} to {lore}
+    
+    return {item}
+
+# Function to create a custom banner
+function create_banner(base_color, patterns = [], name = "", lore = []):
+    set {item} to new banner with color {base_color}
+    
+    if {name} is not "":
+        set display name of {item} to {name}
+    
+    if size of {lore} > 0:
+        set lore of {item} to {lore}
+    
+    loop {patterns}:
+        add pattern loop-value to {item}
+    
+    return {item}
+
+# Function to create a firework with specific properties
+function create_firework(power = 1, colors = [], fade_colors = [], effects = [], flicker = false, trail = false, name = "", lore = []):
+    set {firework} to new firework with power {power}
+    
+    if {name} is not "":
+        set display name of {firework} to {name}
+    
+    if size of {lore} > 0:
+        set lore of {firework} to {lore}
+    
+    set {meta} to firework effect meta of {firework}
+    
+    loop {effects}:
+        set {effect} to new firework effect
+        
+        if {colors} is not empty:
+            set colors of {effect} to {colors}
+        
+        if {fade_colors} is not empty:
+            set fade colors of {effect} to {fade_colors}
+        
+        set type of {effect} to loop-value
+        set flicker of {effect} to {flicker}
+        set trail of {effect} to {trail}
+        
+        add {effect} to {meta}
+    
+    set firework effect meta of {firework} to {meta}
+    
+    return {firework}

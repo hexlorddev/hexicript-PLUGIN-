@@ -1,0 +1,228 @@
+# World Utility Script
+# Provides utility functions for world management and manipulation
+
+# Function to create a new world
+function create_world(name, environment = "NORMAL", generator = "", seed = ""):
+    if world {name} exists:
+        return false, "A world with that name already exists"
+    
+    try:
+        create world {name} with environment {environment} and generator {generator} and seed {seed}
+        return true, "World created successfully"
+    catch error:
+        return false, "Failed to create world: %{error}%"
+
+# Function to delete a world
+function delete_world(name, remove_files = false):
+    if world {name} does not exist:
+        return false, "World does not exist"
+    
+    # Unload the world first if it's loaded
+    if world {name} is loaded:
+        unload world {name} with save {not remove_files}
+    
+    # Delete world files if requested
+    if {remove_files}:
+        delete world files for {name}
+    
+    return true, "World deleted successfully"
+
+# Function to teleport all players from one world to another
+function teleport_all_players(from_world, to_world, to_location = ""):
+    if world {from_world} does not exist or world {to_world} does not exist:
+        return false, "One or both worlds do not exist"
+    
+    set {count} to 0
+    
+    loop all players in world {from_world}:
+        if {to_location} is not "":
+            teleport loop-player to {to_location}
+        else:
+            teleport loop-player to spawn of world {to_world}
+        add 1 to {count}
+    
+    return true, "Teleported %{count}% players"
+
+# Function to set the time in a world
+function set_world_time(world_name, time = "day"):
+    if world {world_name} does not exist:
+        return false, "World does not exist"
+    
+    set {time_value} to 0
+    
+    if {time} is "day":
+        set {time_value} to 1000
+    else if {time} is "noon":
+        set {time_value} to 6000
+    else if {time} is "night":
+        set {time_value} to 13000
+    else if {time} is "midnight":
+        set {time_value} to 18000
+    else if is_number({time}):
+        set {time_value} to {time} as number
+    else:
+        return false, "Invalid time value. Use 'day', 'noon', 'night', 'midnight', or a number"
+    
+    set time in world {world_name} to {time_value}
+    return true, "Time set to %{time}% (%{time_value}%)"
+
+# Function to set the weather in a world
+function set_world_weather(world_name, weather = "clear", duration = 300):
+    if world {world_name} does not exist:
+        return false, "World does not exist"
+    
+    if {weather} is "clear" or {weather} is "sun" or {weather} is "sunny":
+        set weather in world {world_name} to clear for {duration} seconds
+    else if {weather} is "rain" or {weather} is "rainy":
+        set weather in world {world_name} to rain for {duration} seconds
+    else if {weather} is "storm" or {weather} is "thunder":
+        set weather in world {world_name} to thunder for {duration} seconds
+    else:
+        return false, "Invalid weather type. Use 'clear', 'rain', or 'storm'"
+    
+    return true, "Weather set to %{weather}% for %{duration}% seconds"
+
+# Function to get information about a world
+function get_world_info(world_name):
+    if world {world_name} does not exist:
+        return null, "World does not exist"
+    
+    set {info} to {}
+    set {info::name} to {world_name}
+    set {info::environment} to environment of world {world_name}
+    set {info::seed} to seed of world {world_name}
+    set {info::time} to time in world {world_name}
+    set {info::full_time} to full time in world {world_name}
+    set {info::difficulty} to difficulty of world {world_name}
+    set {info::pvp_enabled} to pvp is enabled in world {world_name}
+    set {info::spawn_location} to spawn location of world {world_name}
+    set {info::world_border} to world border of world {world_name}
+    set {info::player_count} to number of players in world {world_name}
+    set {info::loaded_chunks} to number of loaded chunks in world {world_name}
+    set {info::entity_count} to number of entities in world {world_name}
+    set {info::game_rule} to {}
+    
+    # Get all game rules
+    loop game rules in world {world_name}:
+        set {info::game_rule::%loop-value%} to game rule loop-value in world {world_name}
+    
+    return {info}, "World information retrieved"
+
+# Function to format world information as text
+function format_world_info(world_name, include_players = false):
+    set {info}, {message} to get_world_info({world_name})
+    
+    if {info} is null:
+        return {message}
+    
+    set {lines} to []
+    add "&6=== World Information: &e%{info::name}% &6===" to {lines}
+    add "&7Environment: &f%{info::environment}%" to {lines}
+    add "&7Seed: &f%{info::seed}%" to {lines}
+    add "&7Time: &f%{info::time}% &7(Full: %{info::full_time}%)" to {lines}
+    add "&7Difficulty: &f%{info::difficulty}%" to {lines}
+    add "&7PVP: &f%{info::pvp_enabled}%" to {lines}
+    add "&7Spawn: &f%{info::spawn_location}%" to {lines}
+    add "&7World Border: &f%{info::world_border}%" to {lines}
+    add "&7Players: &f%{info::player_count}%" to {lines}
+    add "&7Loaded Chunks: &f%{info::loaded_chunks}%" to {lines}
+    add "&7Entities: &f%{info::entity_count}%" to {lines}
+    
+    # Add game rules
+    add "&7Game Rules:" to {lines}
+    loop {info::game_rule}:
+        add "  &8- &7%loop-index%: &f%loop-value%" to {lines}
+    
+    # Add player list if requested
+    if {include_players} and {info::player_count} > 0:
+        add "&7Players in world:" to {lines}
+        loop all players in world {world_name}:
+            add "  &8- &7%loop-player's name%" to {lines}
+    
+    return {lines}
+
+# Function to create a backup of a world
+function backup_world(world_name, backup_name = ""):
+    if world {world_name} does not exist:
+        return false, "World does not exist"
+    
+    if {backup_name} is "":
+        set {backup_name} to "%{world_name}%_backup_%date format 'yyyy-MM-dd_HH-mm-ss'%"
+    
+    try:
+        # Save the world
+        save world {world_name}
+        
+        # Create backup
+        create world backup of {world_name} named {backup_name}
+        
+        return true, "Backup created: %{backup_name}%"
+    catch error:
+        return false, "Failed to create backup: %{error}%"
+
+# Function to restore a world from a backup
+function restore_world(backup_name, world_name = ""):
+    if {world_name} is "":
+        set {world_name} to {backup_name}
+    
+    if world backup {backup_name} does not exist:
+        return false, "Backup does not exist"
+    
+    try:
+        # Restore the backup
+        restore world backup {backup_name} to {world_name}
+        
+        # Load the world if it's not already loaded
+        if world {world_name} is not loaded:
+            load world {world_name}
+        
+        return true, "World restored from backup: %{backup_name}%"
+    catch error:
+        return false, "Failed to restore backup: %{error}%"
+
+# Function to list all worlds
+function list_worlds():
+    set {worlds} to all worlds
+    set {result} to []
+    
+    loop {worlds}:
+        set {world_info} to {}
+        set {world_info::name} to loop-value
+        set {world_info::type} to environment of world loop-value
+        set {world_info::players} to number of players in world loop-value
+        set {world_info::loaded} to world loop-value is loaded
+        
+        add {world_info} to {result}
+    
+    return {result}
+
+# Function to format world list as text
+function format_world_list(include_players = false):
+    set {worlds} to list_worlds()
+    set {lines} to []
+    
+    add "&6=== Available Worlds &7(%size of {worlds}%) ===" to {lines}
+    
+    if size of {worlds} is 0:
+        add "&7No worlds found" to {lines}
+    else:
+        loop {worlds}:
+            set {line} to "&8- &e%{loop-value::name}% &7(%{loop-value::type}%)"
+            
+            if {loop-value::loaded}:
+                set {line} to "%{line}% &a[Loaded]"
+                
+                if {include_players} and {loop-value::players} > 0:
+                    set {players} to []
+                    loop all players in world {loop-value::name}:
+                        add loop-player's name to {players}
+                    
+                    set {line} to "%{line}% &7(Players: &f%{loop-value::players}% &8- &f%{players::'&7, &f'}%&7)"
+                else:
+                    set {line} to "%{line}% &7(Players: &f%{loop-value::players}%&7)"
+            else:
+                set {line} to "%{line}% &7[Unloaded]"
+            
+            add {line} to {lines}
+    
+    return {lines}

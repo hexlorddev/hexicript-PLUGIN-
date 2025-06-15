@@ -1,0 +1,29 @@
+# Player Utility Script
+# Provides various utility functions for player management
+
+# Function to check if a player has a specific permission
+function has_permission(player, permission):
+    return player has permission permission
+
+# Function to get a player's display name with prefix and suffix
+function get_display_name(player):
+    if player has permission "vault.chat" and {vault} is set:
+        return "%{vault::chat::prefix}%%player%%{vault::chat::suffix}%"
+    return player's display name
+
+# Function to heal a player
+function heal_player(player, amount = 20):
+    if player is online:
+        set player's health to min(20, player's health + amount)
+        return true
+    return false
+
+# Function to give items to a player with inventory checks
+function give_item_safe(player, item, amount = 1):
+    if player's inventory has space for item with amount amount:
+        give item with amount amount to player
+        return true
+    else:
+        # Drop at player's location if no inventory space
+        drop item item with amount amount at player's location
+        return false
